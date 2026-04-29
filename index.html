@@ -1157,6 +1157,109 @@ async function pushToMake() {
   } catch (err) {
     btnStatus.textContent = '✗ Failed';
   }
-}</script>
+}
+
+// ── Load saved SPACE data from HubSpot via Make ──
+const GET_SPACE_DATA_WEBHOOK = 'https://hook.eu1.make.com/wo2eqpy56cz1pox9xkd7aw4oscdv6cfo';
+
+window.addEventListener('DOMContentLoaded', loadSpaceData);
+
+async function loadSpaceData() {
+  const params = new URLSearchParams(window.location.search);
+  const dealId = params.get('dealId');
+
+  if (!dealId) return;
+
+  document.getElementById('deal-record-id').value = dealId;
+  document.getElementById('create-new-deal').checked = false;
+
+  const status = document.getElementById('push-status');
+  if (status) status.textContent = 'Loading saved SPACE data...';
+
+  try {
+    const res = await fetch(`${GET_SPACE_DATA_WEBHOOK}?dealId=${encodeURIComponent(dealId)}`);
+    if (!res.ok) throw new Error(`Load failed: ${res.status}`);
+
+    const data = await res.json();
+
+    if (!data || Object.keys(data).length === 0) {
+      if (status) status.textContent = 'No saved SPACE data found';
+      return;
+    }
+
+    populateForm(data);
+    if (status) status.textContent = '✓ Saved SPACE data loaded';
+    setTimeout(() => { if (status) status.textContent = ''; }, 3000);
+  } catch (err) {
+    console.log('Could not load saved SPACE data', err);
+    if (status) status.textContent = 'No saved SPACE data found';
+    setTimeout(() => { if (status) status.textContent = ''; }, 3000);
+  }
+}
+
+function setVal(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined || value === null) return;
+  el.value = value;
+}
+
+function populateForm(d) {
+  setVal('dn', d.dealname);
+  setVal('deal-record-id', d.deal_record_id);
+  setVal('cd', d.call_date);
+
+  setVal('fn', d.firstname);
+  setVal('ln', d.lastname);
+  setVal('jt', d.job_title);
+  setVal('em', d.email);
+  setVal('ph', d.phone);
+  setVal('co', d.company);
+  setVal('ind', d.industry);
+
+  setVal('s-type', d.space_type);
+  setVal('s-sqft', d.sqft);
+  setVal('s-hc', d.headcount);
+  setVal('s-scope', d.scope_brief);
+  setVal('s-notes', d.scope_notes);
+
+  setVal('p-driver', d.primary_driver);
+  setVal('p-mandate', d.decision_mandate);
+  setVal('p-urgency', d.urgency);
+  setVal('p-success', d.success_criteria);
+  setVal('p-notes', d.purpose_notes);
+
+  setVal('a-dm', d.decision_maker);
+  setVal('a-access', d.dm_access);
+  setVal('a-route', d.route_in);
+  setVal('a-group', d.buying_group);
+  setVal('a-ext', d.external_advisors);
+  setVal('a-notes', d.authority_notes);
+
+  setVal('c-status', d.budget_status);
+  setVal('c-range', d.budget_range);
+  setVal('c-fixed', d.fixed_cost_appetite);
+  setVal('c-landlord', d.landlord_contribution);
+  setVal('c-fund', d.funding_source);
+  setVal('c-notes', d.cost_notes);
+
+  setVal('e-start', d.target_start);
+  setVal('e-deadline', d.hard_deadline);
+  setVal('e-stage', d.procurement_stage);
+  setVal('e-n', d.number_quoting);
+  setVal('e-ct', d.contract_type);
+  setVal('e-sel', d.selection_criteria);
+  setVal('e-notes', d.execution_notes);
+
+  setVal('ns-action', d.next_step);
+  setVal('ns-date', d.next_step_date);
+  setVal('ns-owner', d.owner);
+  setVal('overall-notes', d.notes);
+
+  document.getElementById('create-new-deal').checked = false;
+  if (d.deal_record_id) setVal('deal-record-id', d.deal_record_id);
+
+  score();
+}
+</script>
 </body>
 </html>
