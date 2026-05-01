@@ -254,11 +254,11 @@ details.notes-wrap[open] summary::before { content: '− '; }
         <div class="fg">
           <label>Create New Deal?</label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--dark);text-transform:none;letter-spacing:0;">
-            <input id="create-new-deal" type="checkbox" style="width:auto;">
+            <input id="create-new-deal" type="checkbox" style="width:auto;" onchange="syncDealModeControls()">
             Yes, create a new deal
           </label>
         </div>
-        <div class="fg"><label>Deal Record ID</label><input id="deal-record-id" placeholder="HubSpot deal record ID"></div>
+        <div class="fg"><label>Deal Record ID</label><input id="deal-record-id" placeholder="HubSpot deal record ID" oninput="syncDealModeControls()"></div>
       </div>
     </div>
   </div>
@@ -563,8 +563,7 @@ details.notes-wrap[open] summary::before { content: '− '; }
   <div class="card">
     <div class="card-body open" style="display:block;">
       <div class="actions">
-        <button class="btn btn-mint" onclick="pushToMake()">⬆ Send to CRM</button>
-        <button class="btn btn-dark" onclick="copySummary()">📋 Copy Summary</button>
+        <button class="btn btn-mint" onclick="pushToMake()">Save SPACE Qualification</button>
         <div class="actions-sep"></div>
         <div id="push-status" style="font-size:12px;color:var(--mid);"></div>
       </div>
@@ -849,6 +848,7 @@ function doReset(){
     else if(el.tagName==='TEXTAREA') el.value='';
   });
   delete document.getElementById('dn').dataset.manual;
+  syncDealModeControls();
   score();
   closeModal('ov-reset');
 }
@@ -868,6 +868,37 @@ document.getElementById('dn').addEventListener('input',()=>{
 // ── Helper accessors ──
 function v(id){ const el=document.getElementById(id); return el ? el.value.trim() : ''; }
 function has(id){ return v(id).length > 0; }
+
+
+// ── Deal mode validation ──
+function syncDealModeControls(){
+  const createEl = document.getElementById('create-new-deal');
+  const dealIdEl = document.getElementById('deal-record-id');
+  if(!createEl || !dealIdEl) return;
+
+  if(createEl.checked){
+    dealIdEl.value = '';
+    dealIdEl.disabled = true;
+    dealIdEl.placeholder = 'Disabled when creating a new deal';
+  } else {
+    dealIdEl.disabled = false;
+    dealIdEl.placeholder = 'HubSpot deal record ID';
+  }
+}
+
+function validateDealMode(){
+  const createEl = document.getElementById('create-new-deal');
+  const dealId = v('deal-record-id');
+  const createNew = !!(createEl && createEl.checked);
+
+  if(createNew && dealId){
+    return 'Choose either Create New Deal or enter a Deal Record ID — not both.';
+  }
+  if(!createNew && !dealId){
+    return 'Tick Create New Deal or enter a Deal Record ID before saving.';
+  }
+  return '';
+}
 
 // ── Section scoring ──
 function calcS(){
@@ -1021,57 +1052,19 @@ function score(){
 
 // Run on load
 score();
-
-// ── Copy Summary ──
-function copySummary(){
-  const sc = { S:calcS(), P:calcP(), A:calcA(), C:calcC(), E:calcE() };
-  const total = Math.round((sc.S+sc.P+sc.A+sc.C+sc.E)*10)/10;
-  const [label] = badge(total);
-  const lines = [
-    `SPACE QUALIFICATION SUMMARY`,
-    `Date: ${v('cd')||new Date().toLocaleDateString('en-GB')}`,
-    ``,
-    `Prospect: ${v('fn')} ${v('ln')} | ${v('jt')} @ ${v('co')}`,
-    `Email: ${v('em')} | Phone: ${v('ph')}`,
-    `Deal: ${v('dn')}`,
-    `Create New Deal: ${document.getElementById('create-new-deal').checked ? 'Yes' : 'No'} | Deal Record ID: ${v('deal-record-id')}`,
-    ``,
-    `TOTAL SCORE: ${total}/20 — ${label}`,
-    `S:${sc.S} P:${sc.P} A:${sc.A} C:${sc.C} E:${sc.E}`,
-    ``,
-    `[S] Scope`,
-    `  Space Type: ${v('s-type')} | Sq Ft: ${v('s-sqft')} | Headcount: ${v('s-hc')}`,
-    `  Brief: ${v('s-scope')}`,
-    ``,
-    `[P] Purpose`,
-    `  Driver: ${v('p-driver')} | Mandate: ${v('p-mandate')} | Urgency: ${v('p-urgency')}`,
-    `  Success: ${v('p-success')}`,
-    ``,
-    `[A] Authority`,
-    `  DM: ${v('a-dm')} | Access: ${v('a-access')} | Route: ${v('a-route')}`,
-    `  Group: ${v('a-group')} | Externals: ${v('a-ext')}`,
-    ``,
-    `[C] Cost`,
-    `  Budget: ${v('c-status')} | Range: ${v('c-range')} | Fixed: ${v('c-fixed')}`,
-    `  Landlord: ${v('c-landlord')} | Funding: ${v('c-fund')}`,
-    ``,
-    `[E] Execution`,
-    `  Start: ${v('e-start')} | Deadline: ${v('e-deadline')} | Stage: ${v('e-stage')}`,
-    `  Quoting: ${v('e-n')} | Contract: ${v('e-ct')} | Criteria: ${v('e-sel')}`,
-    ``,
-    `Next Step: ${v('ns-action')} | Date: ${v('ns-date')} | Owner: ${v('ns-owner')}`,
-    ``,
-    `Notes: ${v('overall-notes')}`,
-  ].join('\n');
-  navigator.clipboard.writeText(lines).then(()=>{
-    document.getElementById('push-status').textContent='✓ Summary copied to clipboard';
-    setTimeout(()=>{ document.getElementById('push-status').textContent=''; },3000);
-  });
-}
+syncDealModeControls();
 
 async function pushToMake() {
   const btnStatus = document.getElementById('push-status');
-  btnStatus.textContent = 'Sending...';
+  const modeError = validateDealMode();
+  if(modeError){
+    btnStatus.style.color = 'var(--red)';
+    btnStatus.textContent = modeError;
+    return;
+  }
+
+  btnStatus.style.color = 'var(--mid)';
+  btnStatus.textContent = 'Saving SPACE qualification...';
 
   try {
     const sc = { S:calcS(), P:calcP(), A:calcA(), C:calcC(), E:calcE() };
@@ -1152,10 +1145,13 @@ async function pushToMake() {
       body: JSON.stringify(data)
     });
 
-    btnStatus.textContent = '✓ Sent to Make';
+    const savedAt = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    btnStatus.style.color = 'var(--green)';
+    btnStatus.textContent = `✓ Saved to HubSpot at ${savedAt}`;
 
   } catch (err) {
-    btnStatus.textContent = '✗ Failed';
+    btnStatus.style.color = 'var(--red)';
+    btnStatus.textContent = '✗ Save failed';
   }
 }
 
@@ -1172,6 +1168,7 @@ async function loadSpaceData() {
 
   document.getElementById('deal-record-id').value = dealId;
   document.getElementById('create-new-deal').checked = false;
+  syncDealModeControls();
 
   const status = document.getElementById('push-status');
   if (status) status.textContent = 'Loading saved SPACE data...';
@@ -1257,6 +1254,7 @@ function populateForm(d) {
 
   document.getElementById('create-new-deal').checked = false;
   if (d.deal_record_id) setVal('deal-record-id', d.deal_record_id);
+  syncDealModeControls();
 
   score();
 }
